@@ -359,6 +359,8 @@ Wireframe details to reproduce:
 - **Activity:** filter chips All / Actions / Comments, with **All selected by default**; "N events" shows the feed's `count`; each action shows actor, verb, timestamp, and the inline History (`from → to`) from its `change` field; a Department change also shows its forwarding note.
 - **People** are shown as "Name (Role label)" using `role_label` from the API.
 - **Quick Issues:** chips from a different Department than an already-selected Issue are disabled.
+- **Creation reference states:** the conditional Client picker supports typed name filtering and keyboard selection. Quick Issues display loading and retryable error feedback without blocking ordinary Issue selection.
+- **Submission feedback:** form handlers guard against rapid duplicate submissions before pending-state rendering completes; workflow action panels cannot be switched while an action is pending. After a comment is saved, read the fresh All-feed count and open its last page, including when posting from Actions or Comments. A failed follow-up feed request must not turn a saved comment into a failed submission.
 - **Dates** are shown in the browser's local time, formatted like `27-Oct-2025 11:40 AM`.
 
 ## 15. Acceptance criteria for implementation

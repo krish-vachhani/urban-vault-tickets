@@ -27,6 +27,7 @@ They are intended to be read by both the developer and Claude Code before implem
 | [README-infrastructure-deployment.md](README-infrastructure-deployment.md) | Docker Compose, ECS Fargate, CloudFront/S3 OAC, ALB routing, RDS, ElastiCache, Celery Beat, secrets, scaling, monitoring, and recovery | Finalized |
 | [README-implementation-plan.md](README-implementation-plan.md) | Dependency-ordered Claude Code prompts, assignment-scope traceability, phase acceptance criteria, Git checkpoints, and completion gate | Finalized |
 | [README-phase7-verification.md](README-phase7-verification.md) | Executed integration checks, automated results, hardening fixes, and evidence boundaries | Verification record |
+| [README-final-readiness.md](README-final-readiness.md) | Final audit fixes, regression results, isolated setup rehearsal and remaining delivery boundaries | Verification record |
 | [README-submission-checklist.md](README-submission-checklist.md) | Deliverable review, repository hygiene, safe packaging, and remaining handoff items | Prepared for user review |
 
 ## How to use these documents

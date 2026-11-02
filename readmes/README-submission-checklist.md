@@ -1,12 +1,12 @@
 # Final submission checklist
 
-Prepared for Phase 8 review on 2 November 2026. This phase changes documentation only. No commit, push, archive publication, submission message, or AWS deployment is performed. The user's explicit reporting exclusions take precedence over the assignment's reporting template.
+Prepared for Phase 8 review on 2 November 2026 and updated during final GitHub submission preparation. Phase 8 changed documentation only; the subsequent audit fixes are committed as `3dbbc7a`, with documentation commits also authorized. No push, submission message or AWS deployment has been performed. The user selected repository-link submission; no ZIP is required. The user's explicit reporting exclusions take precedence over the assignment's reporting template.
 
 ## Required deliverables
 
 | Deliverable | Status | Evidence |
 |---|---|---|
-| Source repository or ZIP | Source present; final handoff pending | `backend/`, `frontend/`, migrations, committed dependency manifests/lockfile, tests |
+| GitHub source repository | Source present; publication and recipient access pending | `backend/`, `frontend/`, migrations, committed dependency manifests/lockfile, tests; no ZIP required |
 | README/setup instructions | Prepared | [Root README](../README.md): prerequisites, environment, ordered Compose setup, migrations, seed, login, commands, API/model/design explanations, assumptions, limitations, improvements |
 | AWS deployment note | Prepared; documentation only | [Infrastructure/deployment note](README-infrastructure-deployment.md): approved services, release/configuration, secrets, static assets, Celery, monitoring/scaling, recovery, and production preparation gaps |
 | AI disclosure | Included | Root README names OpenAI ChatGPT / Codex and Anthropic Claude / Claude Code, and describes assistance with development, testing, review, and documentation |
@@ -44,17 +44,23 @@ Phase 8 checks executed against the existing running Compose stack:
 
 The local machine also has a separate Node listener on `::1:5173`: `localhost` selected that listener and returned 404. The verified Compose frontend/API address is `127.0.0.1:5173`, now used in the setup instructions. The unrelated listener was not stopped or modified.
 
-The scan covers current tracked files plus non-ignored review files, not an exhaustive audit of every historical Git object. Existing development data was not reset, reseeded, or migrated; the full startup/build sequence was reviewed against configuration, not re-run from a clean machine. These checks do not replace the Phase 7 report or claim an unperformed visual audit. No generated build files are part of the submission candidate.
+The Phase 8 scan covered current tracked files plus non-ignored review files, rather than historical Git objects. Existing development data was not reset, reseeded, or migrated; Phase 8 reviewed the startup/build sequence without running it from a clean machine. The later final readiness report records the isolated setup rehearsal and targeted browser checks separately. No generated build files are part of the submission candidate.
+
+During final Git preparation, the initial history scan covered all eight reachable commits and 282 distinct historical file blobs, plus 236 current candidate files. No excluded paths or checked secret signatures were found. Credential-like literal findings were reviewed as test fixtures or documentation examples. This is a targeted credential/privacy check, not a guarantee against every possible secret format; subsequent audit-fix and documentation changes were also reviewed before committing.
 
 Outstanding review items:
 
-- [ ] Review desktop/mobile layout, keyboard navigation, and accessibility in a real browser. Phase 7 used component tests and live HTTP checks without a visual browser audit.
-- [ ] Optionally rehearse the documented setup from a fresh checkout/volume before handoff. A clean-machine image rebuild is not claimed by the Phase 7 evidence.
-- [ ] Review the final documentation and AI disclosure; no independent-authorship or production-deployment claim is made.
-- [ ] Choose repository link or ZIP delivery and verify recipient access. No repository visibility change or invitation has been made.
-- [ ] After approving and committing the final contents in a later step, create and inspect the final archive if using ZIP delivery.
+- [x] Acknowledge the user's previously completed browser checks across all four roles and the 375px layout. Phase 7 itself did not perform these checks. The final fix pass adds keyboard Client-selection and interaction regressions; a subsequent targeted native Chrome pass checked Client search, Quick Issues and the 375px creation/detail layout, as recorded in the final readiness report.
+- [x] Rehearse setup outside this checkout with isolated volumes. The final readiness pass built images, migrated an empty PostgreSQL database, seeded 80 tickets and started all six services; role/API and actual Worker-delivery checks passed. Existing Docker dependency-layer caches were reused, so this is not represented as an entirely uncached clean-machine build.
+- [ ] Optionally broaden keyboard/focus/contrast/screen-reader checks. Native Chrome access worked on retry, but the targeted pass stopped at the user's requested scope and does not establish comprehensive accessibility coverage.
+- [x] Review the final documentation and AI disclosure; no independent-authorship or production-deployment claim is made.
+- [x] Choose GitHub repository-link delivery. No ZIP is required.
+- [ ] Confirm the GitHub repository URL and visibility, then authorize the push. No repository visibility change or invitation has been made.
+- [ ] After publication, verify recipient access and share the repository link with HR.
 
 Production configuration gaps are documented in the AWS note. They do not require a live deployment for this assignment and are not authorization to start production implementation in Phase 8.
+
+The subsequent [final readiness verification](README-final-readiness.md) records all four audit findings fixed, rapid-submission protection, 378 backend tests and 90 frontend tests passing, and the isolated setup evidence. The Phase 7 and Phase 8 results above remain historical records. Final application fixes are committed as `3dbbc7a`; GitHub publication remains pending user confirmation.
 
 ## Submission contents and exclusions
 
@@ -65,19 +71,19 @@ Exclude:
 - `docs/assignment-brief.pdf`, `docs/assignment-wireframe.pdf`, and other private assignment PDFs/contact details.
 - `.env`, environment-specific files, real credentials, keys, cookies, tokens, database exports, or local database storage.
 - `node_modules/`, virtual environments, Python caches, coverage reports, frontend build output, collected static/media files, Beat schedule files, local review/tool artifacts, and OS/editor clutter.
-- `.git/` from a ZIP. A repository submission naturally has Git history, so its tracked contents/history need their own credential/privacy review before sharing access.
+- A repository submission includes Git history; tracked contents and reachable history were reviewed for credentials/private files before publication preparation.
 
-`.gitignore` already excludes the private PDFs, local environment, dependencies, database artifacts, and generated output. Ignored files still exist locally and must not be included by zipping the working directory wholesale. No ignore/configuration change is necessary for the current contents.
+`.gitignore` already excludes the private PDFs, local environment, dependencies, database artifacts, and generated output. Ignored files still exist locally and must remain outside Git. No ignore/configuration change is necessary for the current contents.
 
-## Packaging procedure after approval
+## GitHub publication after confirmation
 
-These commands are for a later approved, committed revision. `git archive HEAD` excludes uncommitted Phase 8 documentation, so do not use it for the current review draft.
+The configured `origin` is `https://github.com/krish-vachhani/urban-vault-tickets.git`. This configuration does not establish that the intended repository or its visibility has been confirmed. Before pushing, obtain the user's confirmation of the URL and visibility. If private, ensure HR has repository access; if public, verify that the repository can be opened while signed out.
 
 ```bash
 git status --short
-git ls-files
-git archive --format=zip --prefix=urban-vault-tickets/ --output=../urban-vault-tickets-submission.zip HEAD
-unzip -l ../urban-vault-tickets-submission.zip
+git branch --show-current
+git log -3 --oneline
+git remote -v
 ```
 
-Before delivery, require a clean intended revision, inspect archive entries against the contents/exclusions above, and confirm `README.md`, `.env.example`, Compose, migrations, seed command, tests, and frontend lockfile are included. `git archive` includes tracked files even if an ignore rule later matches them; review the manifest rather than treating the ignore file as a secret scanner. Extract the archive outside this checkout for any final setup rehearsal. Share only the chosen repository link or reviewed archive after user approval.
+Require the intended committed revision on `main` with a clean working tree. After URL, visibility and push authorization are confirmed, publish with `git push -u origin main`. Verify the latest commit and rendered README on GitHub, verify recipient access, and provide the repository's web URL for the user to submit to HR. No archive or message to HR is created by this preparation step.

@@ -5,7 +5,7 @@ A full-stack facility-management ticketing application built for the Urban Vault
 ## Features
 
 - Four authenticated roles: Client, Facility Manager, Department POC, and Worker, with backend-enforced visibility and action permissions.
-- Ticket creation with dependent Client/Office/Floor selection, same-Department Issues, history-derived Quick Issues, and client/server validation.
+- Ticket creation with searchable Client selection, dependent Office/Floor choices, same-Department Issues, history-derived Quick Issues, and client/server validation.
 - Open/Closed lists with server-side pagination, Issue-text search, four filters, and Created Time sorting in both directions.
 - Worker assignment, Department forwarding with a note, three assessment outcomes, and Mark Resolved.
 - Activity with All/Actions/Comments filters, inline change history, structured assignment history, and comments.
@@ -140,6 +140,8 @@ Frontend tests cover forms, role-based controls, URL listing state, API errors, 
 
 The [Phase 7 verification record](readmes/README-phase7-verification.md) reports 376 passing backend tests and 78 passing frontend tests, plus live HTTP/Celery workflow checks. It also records the limits of that evidence: no clean-machine rebuild, visual/responsive browser audit, or live AWS deployment was claimed. See the [submission checklist](readmes/README-submission-checklist.md) for final handoff status and the [testing strategy](readmes/README-testing-strategy.md) for coverage details.
 
+The subsequent [final readiness verification](readmes/README-final-readiness.md) records the audit fixes, **378 backend and 90 frontend tests passing**, and a successful isolated setup with new database volumes, migration/seed execution, four-role HTTP checks and actual Worker delivery. Prior four-role browser checks are user-confirmed. A later targeted native Chrome pass checked Client search, Quick Issues and the 375px creation/detail layout; it did not repeat the full four-role walkthrough.
+
 ## Useful development commands
 
 | Purpose | Command from the repository root |
@@ -198,7 +200,7 @@ Retries use durable `next_attempt_at` scheduling: at most four delivery attempts
 - Workflow stage, closure status, and assessment outcome are separate. `TECHNICIAN_CLOSED` stays in Open until final resolution. The UI's Ticket Status filter uses workflow stage; Concerned Department uses the current handling Department, preserving origin Department for history.
 - Role-specific visibility also includes tickets the user created. Workers retain visibility through historical assignments. Visibility alone does not authorize a workflow action. Any user with visibility can comment, including after closure.
 - Tickets contain Issues from one Department and at most one active Worker. Registration, password reset, uploads, real email/SMS, and live updates are outside the assignment scope.
-- Compose uses development servers. The AWS approach below is documented, with no live deployment claimed. The frontend build has a non-blocking bundle-size warning; a full browser responsiveness/accessibility audit remains a review item.
+- Compose uses development servers. The AWS approach below is documented, with no live deployment claimed. The frontend build has a non-blocking bundle-size warning. Prior four-role/375px browser checks are acknowledged; a broader keyboard, focus, contrast and screen-reader audit is not claimed.
 - Potential follow-up improvements: measured route-level bundle splitting, browser workflow/accessibility checks, and deployment automation/operational instrumentation for the documented AWS target. These are suggestions, not implemented features or additions to this phase.
 
 ## AWS deployment note

@@ -69,6 +69,7 @@ Rules:
 - Return only active Clients associated with that User.
 - If the user has one Client, the frontend may preselect it.
 - If the user has multiple Clients, the frontend displays the Client selector.
+- The conditional Client selector supports typing a Client name to filter the authorized choices, as shown in the wireframe. This is local filtering of `/me/clients/` results, not a new unrestricted Client-search API.
 - If the user has no associated active Clients, return an empty result; the frontend must show a useful empty/error state rather than allowing an invalid Ticket submission.
 - This endpoint lists the Clients a user may **create** Tickets for. It is not used for the Ticket listing's Client filter, whose options come from `GET /api/v1/tickets/filter-options/` (`README-ticket-listing-api.md` §5).
 
