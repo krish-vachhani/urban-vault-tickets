@@ -51,6 +51,8 @@ Implementation rules:
 | 409 | `INVALID_TICKET_TRANSITION` | The user may perform the action, but the Ticket's current stage/status does not allow it (including a second assessment or resolving a closed Ticket) |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
 
+Framework-level errors that no business rule produces (a wrong HTTP method, an unsupported content type) keep their standard HTTP status and use the upper-cased DRF code, for example `405 METHOD_NOT_ALLOWED`. A malformed JSON body is a `400 VALIDATION_ERROR`.
+
 **Not-found policy (finalized, I4).** A Ticket that does not exist and a Ticket the user cannot see both return `404`, on every Ticket detail, sub-resource (`/activities/`, `/history/`, `/comments/`, `/eligible-workers/`), and action endpoint. This prevents discovering other Tickets by guessing IDs.
 
 **Order of checks** for Ticket action endpoints, so each request gets one predictable error:

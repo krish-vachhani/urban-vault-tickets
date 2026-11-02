@@ -6,11 +6,13 @@ from apps.accounts.models import User, UserRole
 from apps.organizations.models import (
     Client,
     ClientOffice,
+    ClientOfficeFloor,
     Department,
     DepartmentWorker,
     Floor,
     Issue,
     Property,
+    UserClient,
 )
 
 _sequence = itertools.count(1)
@@ -24,6 +26,10 @@ def create_user(role: str) -> User:
 
 def create_client() -> Client:
     return Client.objects.create(name=f"Client {next(_sequence)}")
+
+
+def map_user_to_client(user: User, client: Client) -> UserClient:
+    return UserClient.objects.create(user=user, client=client)
 
 
 def create_property(facility_manager: User | None = None) -> Property:
@@ -59,3 +65,7 @@ def create_worker(department: Department) -> User:
 
 def create_issue(department: Department | None = None) -> Issue:
     return Issue.objects.create(name=f"Issue {next(_sequence)}", department=department or create_department())
+
+
+def map_floor_to_office(floor: Floor, office: ClientOffice) -> ClientOfficeFloor:
+    return ClientOfficeFloor.objects.create(client_office=office, floor=floor)

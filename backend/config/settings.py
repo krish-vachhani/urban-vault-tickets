@@ -5,6 +5,7 @@ repository's .env.example). Secrets have no defaults: the application refuses
 to start without them.
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 from config.env import (
@@ -40,6 +41,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 PROJECT_APPS = [
@@ -91,6 +93,26 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# SimpleJWT: short-lived access token in React memory, rotating refresh token in an
+# HttpOnly cookie (readmes/README-authentication.md §2 and §7).
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": get_required_env("JWT_SIGNING_KEY"),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+REFRESH_COOKIE_NAME = "uv_refresh"
+# The browser sends the refresh cookie only to the auth endpoints, never to ticket endpoints.
+REFRESH_COOKIE_PATH = "/api/v1/auth/"
+# Secure by default; only local plain-HTTP development turns it off in .env.
+REFRESH_COOKIE_SECURE = get_bool_env("REFRESH_COOKIE_SECURE", default=True)
+# Django's CSRF cookie follows the refresh cookie: HTTPS-only wherever HTTPS is used.
+CSRF_COOKIE_SECURE = REFRESH_COOKIE_SECURE
+
 # --- Database (PostgreSQL only; tests also run on PostgreSQL) -------------------------
 
 DATABASES = {
@@ -109,9 +131,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --- Django REST Framework ---------------------------------------------------------------
 
 REST_FRAMEWORK = {
-    # SimpleJWT bearer authentication is added with the authentication feature.
-    # Until then no request is authenticated, so protected endpoints return 403.
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    # Bearer access tokens only; the refresh cookie never authenticates an API request.
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework_simplejwt.authentication.JWTAuthentication"],
+    "EXCEPTION_HANDLER": "config.exception_handler.api_exception_handler",
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
 }
