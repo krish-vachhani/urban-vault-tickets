@@ -31,7 +31,7 @@ Some finalized decisions are deliberate interpretations of ambiguous source mate
 7. **Use real integration boundaries.** The React application must call the Django APIs. Hardcoded ticket data is acceptable only in isolated frontend tests, not as a substitute for backend functionality.
 8. **Keep business logic out of views.** Views handle HTTP; serializers validate and shape data; permission classes and scoped querysets enforce access; selectors handle read queries; services perform business operations and transactions.
 9. **Keep the repository reproducible.** Maintain migrations, deterministic seed data, Docker Compose, `.env.example`, setup commands, and test commands as implementation changes.
-10. **Be transparent about completion.** Do not mark a requirement complete until its acceptance check has been run. Record actual work/time spent accurately in the final root README as requested by the assignment; do not invent a time figure.
+10. **Be transparent about completion.** Do not mark a requirement complete until its acceptance check has been run. Report executed checks and their limitations accurately. The delivery documentation follows the user's explicit reporting exclusions.
 
 ## 3. Assignment-scope traceability
 
@@ -66,7 +66,7 @@ Every item below is part of the implementation scope unless the source explicitl
 | AWS deployment note covering services, secrets, static/media, workers, scaling, monitoring, recovery | Detailed deployment README and concise root README summary | All requested deployment topics are documented; no live deployment is claimed |
 | At least four meaningful automated tests in the required categories | API/business rule, auth/authorization, Celery failure/retry, frontend interaction | Four required categories are explicitly covered and tests pass |
 | Source code, migrations, Docker configuration and sample-data setup | Repository implementation and reproducible commands | A clean checkout can be set up using documented instructions |
-| Root README with prerequisites, setup, tests, APIs, model, decisions, assumptions, limitations, actual time, optimization, Celery/Redis, improvements | Root `README.md` plus links to feature READMEs | Review root README against the full deliverables list |
+| Root README with prerequisites, setup, tests, APIs, model, decisions, assumptions, limitations, optimization, Celery/Redis, improvements | Root `README.md` plus links to feature READMEs | Review root README against the deliverables list and the user's explicit reporting exclusions |
 | AI-assisted development disclosure | Root README states tools used and how they supported the work | Disclosure is accurate and complete |
 | Optional screenshots or short demonstration | Capture only after the product flow works | Optional; do not substitute for required functionality |
 
@@ -224,15 +224,17 @@ Run one prompt at a time. Read the referenced specifications first, inspect chan
 
 **Acceptance:** All four mandatory categories pass; core role, workflow, listing, and async behaviours have meaningful assertions; no tests depend on external email or AWS services.
 
-### Phase 8 — Full integration and submission
+### Phase 8 — Final documentation and delivery preparation
+
+The approved Phase 8 request limits this phase to documentation and submission preparation. Phase 7 already records the integration verification; preserve its evidence boundaries. Do not start further implementation, change dependencies or architecture, commit, push, or submit before user review.
 
 **Read:** all feature READMEs, especially `README-infrastructure-deployment.md`, `README-testing-strategy.md`, and this plan.
 
 **Prompt:**
 
-> Perform a final scope-completeness audit against the assignment brief and wireframe. Start the complete Docker Compose environment from a clean state; apply migrations; run the reproducible seed command; verify frontend/backend health; run backend and frontend tests; and smoke-test the four-role journey: Client creates a ticket, Facility Manager sees it, Department POC assigns a Worker or forwards the Department, Worker submits one of the three assessments, and Client marks the ticket resolved. Verify listing pagination, all four filters, Issue search, and both Created Time sort directions with seeded records. Verify Activity, History, comments, loading/empty/error/permission states, and responsive layouts. Check `.env.example` contains placeholders only and no secrets, dependency folders, or environment-specific files are committed. Complete the root README with prerequisites, setup commands, test commands, API overview, data model, architecture decisions, assumptions, limitations, at least two Engineering Depth choices, query optimization, Celery/Redis/Outbox design, AWS deployment approach, AI tools used and how they were used, actual time spent, and improvements possible with more time. Do not claim a live AWS deployment. Report each assignment requirement as complete, incomplete, or not applicable, with evidence.
+> Review the assignment deliverables, existing READMEs, actual configuration, and Phase 7 evidence. Complete the root README with prerequisites, environment setup, verified Docker Compose/migration/seed/test commands, demo login, API/model/architecture overview, assumptions, limitations, Engineering Depth choices, query optimization, Celery/Redis/outbox design, AWS approach, AI disclosure, and possible follow-up improvements. Finalize the deployment note within the approved architecture. Prepare a submission checklist and safe repository/archive instructions that exclude private assignment PDFs, secrets, dependencies, databases, and generated files. Apply the user's explicit reporting exclusions. Inspect Git status, report verification limits and remaining input, and stop for review without implementation, commit, push, or publication.
 
-**Acceptance:** Every in-scope requirement is checked against the source; clean Docker startup works; migrations and seeds are reproducible; required tests pass; the four-role workflow and listing behaviours work; documentation is complete; any remaining defect is disclosed explicitly.
+**Acceptance:** Setup commands and configuration match the implementation; root README, deployment note, AI disclosure, and submission checklist are complete; Phase 7 evidence is linked without overstating it; submission contents are checked; remaining review items are explicit. Changes remain uncommitted for user review.
 
 ## 7. Git and review checkpoints
 
@@ -263,7 +265,7 @@ The repository root `README.md` must include:
 - Project overview and implemented workflow.
 - Prerequisites and versions.
 - Setup and Docker Compose run instructions.
-- Migration and seeded-data commands, including demo accounts/credentials safe for local evaluation only.
+- Migration and seeded-data commands, including fictional demo account emails and instructions to use the locally configured seed password; never publish actual passwords.
 - Backend and frontend test commands.
 - API endpoint overview.
 - Data-model and architecture explanation, linking to `readmes/` feature specifications.
@@ -271,9 +273,8 @@ The repository root `README.md` must include:
 - Explanation of at least two Engineering Depth choices (the agreed design includes audit history, transactions, and query optimization; useful logging may also be documented where implemented).
 - Redis/Celery/Outbox design, retry and duplicate handling.
 - AWS deployment approach, clearly stating that no live deployment was performed if that is the case.
-- Actual time spent, recorded truthfully after implementation.
 - AI-assisted development disclosure: name the tools and accurately describe how they were used.
-- What would be improved with more time.
+- Potential follow-up improvements.
 
 ## 9. Final scope-completion gate
 
@@ -298,7 +299,7 @@ Do not call the assignment complete until every applicable item below has been i
 - [ ] At least two Engineering Depth options are implemented and explained; query optimization and indexes are justified.
 - [ ] Root README and feature READMEs are complete and consistent.
 - [ ] AWS deployment note covers all requested topics; no live deployment is claimed unless actually performed.
-- [ ] AI-tool usage and actual time spent are disclosed truthfully.
+- [ ] AI-tool usage is disclosed truthfully and the user's explicit reporting exclusions are respected.
 
 ## 10. Scope and change-control note
 

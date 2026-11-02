@@ -6,6 +6,8 @@
 **Scheduler:** One Celery Beat instance  
 **Scope:** Local development, deployment topology, networking, secrets, scaling, observability, and recovery. A live AWS deployment is not required.
 
+**Delivery status:** The Compose configuration and backend image exist. AWS resources, deployment automation, production ingress, and CloudWatch configuration are a documented deployment approach, not a provisioned or verified environment. The production preparation items in §11 must be addressed before a live release.
+
 This document records the approved infrastructure architecture for the Urban Vault take-home assignment. Follow it without introducing Kubernetes, microservices, EC2-managed Docker hosts, or a different queueing platform.
 
 ## 1. Assignment requirements
@@ -71,14 +73,21 @@ From the repository root:
 # Create the local environment file (first time only)
 cp .env.example .env
 
-# Build and start all six services
-docker compose up --build
+# Edit .env: replace the secret, database-password, and demo-password placeholders.
+# Build first so API, Worker, and Beat can share the backend image.
+docker compose config --quiet
+docker compose build
+docker compose up -d postgres redis
 
-# Apply database migrations
-docker compose exec backend python manage.py migrate
+# Apply migrations before starting application processes
+docker compose run --rm backend python manage.py migrate
 
 # Load deterministic demo users and sample data
-docker compose exec backend python manage.py seed_demo_data
+docker compose run --rm backend python manage.py seed_demo_data
+
+# Start all six services
+docker compose up -d --wait
+docker compose ps
 
 # Run backend tests
 docker compose exec backend python manage.py test
@@ -135,7 +144,28 @@ VITE_ENABLE_DEMO_ACCOUNTS=true
 API_PROXY_TARGET=http://backend:8000
 ```
 
-The actual settings names may follow the implementation, but every required setting must be documented and validated at startup. Production values come from Secrets Manager and ECS task configuration, not from a committed environment file.
+These names match `.env.example`, Django settings, the seed command, and Vite configuration. Django fails at startup for missing required secrets/database/broker settings; `SEED_DEMO_PASSWORD` is required by the seed command. Production values come from Secrets Manager and ECS task configuration, not from a committed environment file. Django does not automatically read a local `.env`; Compose injects it.
+
+### 3.4 Production configuration mapping
+
+| Variable | Production value/source |
+|---|---|
+| `DEBUG` | `False` |
+| `SECRET_KEY`, `JWT_SIGNING_KEY` | Separate random secrets, injected from Secrets Manager |
+| `ALLOWED_HOSTS` | Actual request hostnames forwarded to Django; reconcile with origin routing and health probes |
+| `CSRF_TRUSTED_ORIGINS` | Public HTTPS application origin, including scheme |
+| `REFRESH_COOKIE_SECURE` | `True`; also makes Django's CSRF cookie secure |
+| `DB_NAME`, `DB_USER`, `DB_HOST`, `DB_PORT` | RDS database/name, application user, private endpoint, port |
+| `DB_PASSWORD` | Secrets Manager; use a separate migration role if application privileges are restricted |
+| `REDIS_URL` | Private ElastiCache broker URL; inject the whole URL as a secret when it contains authentication; use TLS with certificate verification |
+| `LOG_LEVEL` | `INFO` unless an operational need justifies another level |
+| `NOTIFICATION_REDISPATCH_INTERVAL_SECONDS` | `300` by default; changes the lost-message redispatch interval, not the processing lease or retry budget |
+| `VITE_API_BASE_URL` | `/api/v1`, supplied at frontend build time |
+| `VITE_ENABLE_DEMO_ACCOUNTS` | `false`, supplied at frontend build time; do not seed demo accounts in production |
+| `API_PROXY_TARGET` | Development-only Vite proxy setting; unused by the S3-hosted build |
+| `SEED_DEMO_PASSWORD` | Local evaluation only; omit from production tasks |
+
+The API, Worker, Beat, and migration task need the same database/broker configuration and compatible application revision. `VITE_*` values are embedded in public JavaScript; they must never contain secrets. Bare ECS environment names such as `CELERY_BROKER_URL` or `DATABASE_URL` do not replace the implemented `REDIS_URL` and `DB_*` readers.
 
 ## 4. Production AWS topology
 
@@ -199,6 +229,10 @@ The API and Worker can scale independently because they have different workloads
 
 Use Fargate tasks in private application subnets. The ALB routes API traffic to healthy API targets. The Worker and Beat do not need public ingress. Use separate task definitions or the same image with different commands; use separate IAM task roles where their AWS permissions differ.
 
+Use the image's API command, `gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3`; Worker command, `celery -A config.celery:celery_app worker --loglevel=info`; and Beat command, `celery -A config.celery:celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule`. The Beat schedule file is disposable and must be writable by the image's unprivileged user. For a desired count of one, stop-before-start deployment settings (`minimumHealthyPercent=0`, `maximumPercent=100`) prevent planned rolling-deployment overlap; verify the old scheduler has stopped before starting a manual replacement. See [ECS rolling deployment controls](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-ecs.html).
+
+Use an ALB IP target group on API port 8000 and `/api/v1/health/` as the probe path. The probe returns 200 only when Django can connect to PostgreSQL; it does not test Redis, Worker, or Beat. Match probe Host handling to Django's allowed-host configuration before considering targets healthy. Private tasks need outbound access, through the VPC's configured egress or service endpoints, for image pulls, startup secrets, and logs.
+
 ### 4.3 Supporting AWS services
 
 | Concern | AWS service/design |
@@ -226,6 +260,12 @@ Use an ElastiCache engine/version that is compatible with the pinned Celery/Komb
 4. Use hashed/versioned asset filenames so long-lived caching is safe for immutable assets.
 5. Keep the SPA entry document's cache policy short enough for deployments to take effect; invalidate the relevant CloudFront paths after publishing if required.
 
+Build from `frontend/` with `npm ci` and `VITE_API_BASE_URL=/api/v1 VITE_ENABLE_DEMO_ACCOUNTS=false npm run build`; publish `frontend/dist/`. Set the distribution's default root object to `index.html`. Configure SPA deep links (for example `/tickets/123`) to serve the SPA entry through the static behavior only. API errors must retain their original status/JSON; do not apply a distribution-wide 403/404-to-HTML fallback that masks authentication or ticket errors. Static routing is deployment configuration and is not supplied by this repository.
+
+### Django static assets
+
+`STATIC_ROOT` is `backend/staticfiles/` and `STATIC_URL` is `static/`. Run `python manage.py collectstatic --noinput` in the backend image as a release/build task and upload the resulting files under the S3 `static/` prefix. They can be served through the existing CloudFront S3 origin at `/static/*`. Gunicorn does not serve these files, and the image currently does not collect or upload them automatically. No S3 Django storage dependency is installed; deployment tooling performs the upload. Production admin exposure at `/admin/` would also require explicit ALB routing and access controls; the approved public application routing only includes `/api/*`.
+
 ### User-uploaded media
 
 The assignment does not require file uploads. Do not build a media subsystem just for this assignment. If uploads are introduced later, use a separate private S3 bucket and backend-authorized presigned URLs; do not make the bucket public.
@@ -237,7 +277,7 @@ The assignment does not require file uploads. Do not build a media subsystem jus
 - Use an ECS task execution role for image pulls and task startup secret/log delivery permissions.
 - Use an ECS task role for application runtime AWS access. Grant least privilege; the API/Worker should not inherit broad account-level permissions.
 - Do not bake secrets into Docker images, source code, build arguments, or GitHub Actions logs.
-- Use environment variables for non-secret configuration such as `DEBUG=False`, database host, allowed hosts, Redis URL, log level, and public URL.
+- Use environment variables for non-secret configuration such as `DEBUG=False`, database host, allowed hosts, CSRF origins, and log level. Treat an authenticated Redis URL as a secret. There is no `PUBLIC_URL` application setting in the current implementation.
 
 ## 7. Celery, Beat, and the transactional outbox
 
@@ -284,6 +324,8 @@ Recommended signals:
 
 Use structured application logs containing request/correlation ID, Ticket ID, outbox ID, task ID, event type, and outcome. Never log passwords, JWTs, refresh cookies, or secrets. Configure CloudWatch alarms with thresholds based on observed workload rather than inventing arbitrary thresholds in the assignment README.
 
+Current notification logs include identifiers, attempts, and outcomes, with sanitized delivery/publication failures. A universal request/correlation-ID pipeline, outbox metric exporter, dashboards, and alarms are not implemented. Configure ECS `awslogs` delivery and AWS service alarms during deployment; provide an operator inspection/metric collection process for the outbox counters above rather than assuming they are automatically exported. Do not claim every application exception is sanitized: the central unexpected-error handler still records server tracebacks, so production log access and redaction require review.
+
 Enable the ECS deployment circuit breaker with rollback for rolling service deployments. Use ALB health checks and ECS task health checks so unhealthy API tasks are removed/replaced. Monitor deployment failure events and CloudWatch alarms.
 
 ## 10. Failure recovery
@@ -297,28 +339,33 @@ Enable the ECS deployment circuit breaker with rollback for rolling service depl
 | Redis is unavailable | Ticket operation remains committed if its PostgreSQL transaction committed; outbox stays PENDING; Beat/manual dispatcher republishes after broker recovery |
 | Redis loses queued messages | Pending/stale outbox rows are republished; idempotency guards duplicates |
 | Worker crashes while processing | Stale `PROCESSING` rows are reset/requeued after the five-minute processing lease expires |
-| Notification repeatedly fails | Outbox row becomes `FAILED`, retains sanitized error context, and can be inspected/reprocessed deliberately |
-| RDS instance/AZ failure | RDS Multi-AZ failover for production HA; clients retry transient connection failures |
+| Notification repeatedly fails | Outbox row becomes `FAILED` and retains sanitized error context; inspect and correct the cause before a controlled operator repair. The dispatcher skips terminal FAILED rows; no automatic replay/reset command is implemented |
+| RDS instance/AZ failure | RDS Multi-AZ failover for production HA; monitor reconnection after failover. In-flight requests may fail; do not assume automatic retry of business writes |
 | Accidental data deletion/corruption | Restore RDS from automated backup/PITR to a recovery instance and validate before cutover |
 | Frontend release is broken | Restore the previous versioned S3 build and invalidate relevant CloudFront paths |
 
 For real external email delivery, a crash after a provider accepts an email but before PostgreSQL records `SENT` can still cause duplicate delivery. Use provider idempotency when available; do not promise exactly-once external delivery.
 
-## 11. Suggested deployment pipeline (not a mandatory assignment deliverable)
+## 11. Deployment procedure (documentation only)
 
-A simple CI/CD flow can use GitHub Actions:
+Before releasing, provision the already-approved services in §4: VPC/subnets/security groups and egress, ECR, private RDS and ElastiCache, Secrets Manager entries and IAM roles, ECS/ALB, private S3/OAC/CloudFront, TLS certificates, and CloudWatch log groups. Choose the deployment-time parameters in §13. No Terraform, CloudFormation, AWS CLI release script, or CI pipeline is included.
 
-1. Run backend and frontend automated tests.
-2. Build the backend Docker image.
-3. Push the image to Amazon ECR.
-4. Run Django migrations once as a one-off ECS task before deploying the new application version.
-5. Deploy the API, Worker, and single Beat services.
-6. Build the Vite frontend and upload versioned assets to S3.
-7. Update/invalidate CloudFront entry paths as needed.
+Release sequence, performed by deployment tooling or an operator:
+
+1. Run the root README's tests, lint, typecheck, build, and migration checks. Tag the release with an immutable revision and retain the previous image/static release for rollback.
+2. Build the existing `backend/Dockerfile` and push it to ECR. Register API/Worker/Beat task definitions referencing the same image and the configuration in §3.4. Use separate least-privilege execution/runtime roles.
+3. Confirm database backups/PITR are available. Run `python manage.py migrate --noinput` once as a one-off Fargate task using that image and private database connectivity. Check its exit status before continuing. Do not run `seed_demo_data` on production data.
+4. Collect/upload Django static assets as in §5. Deploy the API and Worker with health checks and rollback enabled. Replace Beat without two active schedulers. Validate database connectivity, Worker responsiveness, and scheduled outbox dispatch independently.
+5. Build/upload the frontend with production Vite values (§5). Upload hashed assets before publishing `index.html`; preserve previous release artifacts. Update/invalidate entry paths in CloudFront as necessary.
+6. Through the public HTTPS origin, verify SPA deep links, health, CSRF/login/refresh/logout, an authorized ticket action, uncached user-specific API responses, and an actual simulated notification reaching `SENT`. Check logs/alarms and that exactly one Beat is active.
+
+Before a real deployment, run `python manage.py check --deploy` with production configuration and review its findings. Current settings do not expose PostgreSQL TLS options or configure trusted proxy HTTPS handling, HSTS, or secure admin session cookies. TLS requirements for RDS and Django's HTTPS/proxy settings therefore need explicit production configuration work and verification; setting `DEBUG=False` alone does not complete that work. Redis TLS must use the pinned Celery transport's supported settings and certificate verification (see [Celery broker TLS configuration](https://docs.celeryq.dev/en/stable/userguide/configuration.html#broker-use-ssl)). These are deployment preparation gaps, not changes implemented in this documentation phase.
 
 Do not run migrations independently in every API task at startup. Use backward-compatible migration practices during rolling deployments so the old and new application versions can safely overlap during deployment.
 
 The CI/CD implementation itself is not a required assignment deliverable; document the production approach without adding an unrequested AWS automation subsystem.
+
+For recovery, roll API/Worker/Beat back to a compatible previous image revision and restore the previous frontend entry/assets (§10). Application rollback does not undo database migrations: prefer backward-compatible migrations, and assess data/schema compatibility before any rollback. For data loss, restore RDS to a recovery instance, validate it, update `DB_HOST`/secret references, and redeploy affected tasks; replay only due/recoverable notifications after verifying the restored outbox state. Do not flush PostgreSQL or treat Redis as the durable backup.
 
 ## 12. Security checklist
 

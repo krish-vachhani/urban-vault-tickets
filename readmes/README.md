@@ -26,6 +26,8 @@ They are intended to be read by both the developer and Claude Code before implem
 | [README-testing-strategy.md](README-testing-strategy.md) | Django/DRF API tests, PostgreSQL test database, Celery retry/idempotency tests, React interaction tests, and manual smoke test | Finalized |
 | [README-infrastructure-deployment.md](README-infrastructure-deployment.md) | Docker Compose, ECS Fargate, CloudFront/S3 OAC, ALB routing, RDS, ElastiCache, Celery Beat, secrets, scaling, monitoring, and recovery | Finalized |
 | [README-implementation-plan.md](README-implementation-plan.md) | Dependency-ordered Claude Code prompts, assignment-scope traceability, phase acceptance criteria, Git checkpoints, and completion gate | Finalized |
+| [README-phase7-verification.md](README-phase7-verification.md) | Executed integration checks, automated results, hardening fixes, and evidence boundaries | Verification record |
+| [README-submission-checklist.md](README-submission-checklist.md) | Deliverable review, repository hygiene, safe packaging, and remaining handoff items | Prepared for user review |
 
 ## How to use these documents
 
@@ -86,4 +88,4 @@ Decisions made after the feature READMEs were first finalized. Each is applied t
 
 ## Root project README
 
-These feature readmes do not replace the repository's root `README.md`. The root project README is still required for prerequisites, setup and run instructions, test commands, API overview, architecture summary, actual time spent, limitations, AI-tool disclosure, and a concise AWS deployment summary. `README-infrastructure-deployment.md` is the detailed source for the AWS architecture and Docker Compose requirements.
+The [root project README](../README.md) provides prerequisites, setup and run instructions, test commands, API overview, architecture summary, limitations, AI-tool disclosure, and a concise AWS deployment summary. `README-infrastructure-deployment.md` is the detailed source for the approved AWS architecture and Docker Compose requirements. The submission checklist records delivery checks and outstanding user-review items.
