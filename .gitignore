@@ -1,0 +1,47 @@
+# --- Environment and secrets -------------------------------------------------
+# Only .env.example (placeholders) is committed.
+.env
+.env.*
+!.env.example
+
+# --- Private source documents --------------------------------------------------
+# The assignment brief and wireframe contain recruiter contact details.
+docs/*.pdf
+
+# --- Local database data --------------------------------------------------------
+# PostgreSQL data lives in a Docker named volume; these cover stray local files.
+*.sqlite3
+*.dump
+pgdata/
+
+# --- Python / Django -----------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/staticfiles/
+backend/media/
+celerybeat-schedule*
+
+# --- Node / React ----------------------------------------------------------------
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- Editors and operating systems -------------------------------------------------
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# --- Local tooling -----------------------------------------------------------------
+.lavish/

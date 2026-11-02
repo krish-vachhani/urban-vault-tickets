@@ -1,0 +1,93 @@
+# Local development stack: six services (README-infrastructure-deployment §3).
+#
+#   cp .env.example .env
+#   docker compose up --build
+#   docker compose exec backend python manage.py migrate
+#
+# Migrations are run explicitly (above), never automatically by every container.
+
+# Shared settings for the three services that run the backend image
+# (API, Celery worker, Celery Beat). Only their commands differ.
+# Only the `backend` service builds the image; building the same tag from
+# three services in parallel fails on a clean machine.
+x-backend-service: &backend-service
+  image: urban-vault-backend:local
+  # The image only ever exists locally, so never try to pull it from a registry.
+  pull_policy: never
+  env_file: .env
+  volumes:
+    - ./backend:/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    <<: *backend-service
+    build:
+      context: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  celery-worker:
+    <<: *backend-service
+    command: celery -A config.celery:celery_app worker --loglevel=info
+
+  celery-beat:
+    <<: *backend-service
+    # Exactly one Beat scheduler may run. The schedule state file lives in /tmp
+    # so it is not written into the mounted source directory.
+    command: celery -A config.celery:celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+
+  frontend:
+    build:
+      context: ./frontend
+    env_file: .env
+    command: npm run dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      # Keep the container's own node_modules instead of the host's copy.
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

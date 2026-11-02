@@ -1,0 +1,9 @@
+/*
+ * Material UI + Tailwind CSS v4 integration (README-frontend-architecture §12).
+ * Declaring the layer order first lets Tailwind utilities override MUI styles
+ * when both style the same element. MUI injects its styles into the "mui" layer
+ * because StyledEngineProvider is rendered with `enableCssLayer`.
+ */
+@layer theme, base, mui, components, utilities;
+
+@import "tailwindcss";
