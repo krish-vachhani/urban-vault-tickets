@@ -386,3 +386,17 @@ The following decisions are now finalized and must not be treated as open questi
 ## 10. Assignment scope exclusions
 
 Do not add multi-tenant organization tables, multiple active Workers per Ticket, multiple Department POCs, Worker-to-Property mapping, multiple assessments, or Event Sourcing. `NotificationOutbox` is a durable job table for asynchronous notification delivery; it does not make the application event-sourced.
+
+## 11. Implementation notes (Phase 2)
+
+Choices made while writing the models. None changes a finalized decision above.
+
+- **Deletion policy:** every foreign key uses `on_delete=PROTECT`. Referenced records cannot be deleted; retire them with `is_active=False`.
+- **`Property.address`:** optional (`blank=True`), because no workflow rule needs it. The seed fills it in.
+- **`ClientOffice.code`:** optional. A blank code means "no code"; the `(client, code)` unique constraint applies only to non-blank codes. The seed leaves codes blank, because Harness-1317 and HSR-1317 would otherwise need different codes for no reason.
+- **`TicketAssignment.end_reason`:** choices `REASSIGNED` (a supported reassignment replaced the Worker) and `TICKET_CLOSED` (the Ticket was marked resolved).
+- **Timestamps:** `created_at`, `assigned_at`, and `submitted_at` on the ticket tables and the outbox use `default=timezone.now` instead of `auto_now_add`, so the seed can spread Tickets over 60 days. `updated_at` uses `auto_now`.
+- **Role checks:** the foreign keys to Facility Manager, POC, and Worker Users use `limit_choices_to`. This only restricts the choices offered by the Django admin and model forms (`full_clean()` honours it). It is neither a database constraint nor authorization. Role validation stays in the application services (§4), which the Phase 3–4 services must perform explicitly on every write. "A POC is not also a Worker" follows from a User having one role, once the services validate the Worker role. `ClientOfficeFloor.clean()` checks that the Floor and the Office share a Property.
+- **Immutable origin Department:** `origin_department` is a separate column from `current_department`; nothing in the database stops it being updated. Immutability is enforced by the services, which never write it after creation.
+- **Not yet decided:** the Issue-search index (§9, item 2) is deferred to the Ticket listing API (Phase 4), where the search query exists.
+- **Activity `metadata` keys written by the seed** (Phase 4 services should write the same): `TICKET_ROUTED` → `department_id`; `WORKER_ASSIGNED` → `worker_id`, `change`; `DEPARTMENT_CHANGED` → `from_department_id`, `to_department_id`, `note`, `change`; `ASSESSMENT_SUBMITTED` → `outcome`, `change`; `TICKET_RESOLVED` → `change`. The READMEs do not specify `TICKET_ROUTED` metadata, so it is kept minimal.
