@@ -81,6 +81,8 @@ Decisions made after the feature READMEs were first finalized. Each is applied t
 | 2026-11-02 | R2 | CSRF explicitly enforced on login/refresh/logout, with tests | authentication, frontend, testing, plan |
 | 2026-11-02 | R3 | One retry mechanism: durable `next_attempt_at` scheduling, `attempt_count` authoritative (max 4), no Celery `self.retry()`; retry delays 30/60/120 s; Beat every 60 s; five-minute PROCESSING lease | async, schema, infrastructure, testing, plan |
 | 2026-11-02 | R4 | Activity feed is a paginated SQL `UNION ALL`, never merged in Python | actions-api |
+| 2026-11-02 | P4a | Phase 4 recorded the Issue-search index decision (no trigram index) and that no further indexes were needed | schema |
+| 2026-11-02 | P4b | Phase 4 fixed the `/history/` and comment response shapes, the assessment 403/409 split, and out-of-range `page` → 400 | actions-api, api-conventions |
 
 ## Root project README
 

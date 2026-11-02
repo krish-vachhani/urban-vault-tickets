@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from apps.accounts.models import User, UserRole
 from apps.organizations.models import ClientOffice, Department, Issue
 from apps.organizations.role_labels import get_name_with_role_label
+from apps.tickets.activity import build_change
 from apps.tickets.demo_seed.reference_data import (
     ABDUL,
     CHAITANYA,
@@ -381,7 +382,7 @@ class DemoTicketWriter:
                 "from_department_id": from_department.id,
                 "to_department_id": to_department.id,
                 "note": FORWARDING_NOTE,
-                "change": _change("department", from_department.name, to_department.name),
+                "change": build_change("department", from_department.name, to_department.name),
             },
         )
 
@@ -406,7 +407,7 @@ class DemoTicketWriter:
             lifecycle_times[ASSIGN],
             metadata={
                 "worker_id": worker.id,
-                "change": _change("assignee", "Unassigned", get_name_with_role_label(worker)),
+                "change": build_change("assignee", "Unassigned", get_name_with_role_label(worker)),
             },
         )
 
@@ -420,7 +421,7 @@ class DemoTicketWriter:
             submitted_at,
             metadata={
                 "outcome": outcome,
-                "change": _change("status", TicketStatus.OPEN.label, TicketStatus.TECHNICIAN_CLOSED.label),
+                "change": build_change("status", TicketStatus.OPEN.label, TicketStatus.TECHNICIAN_CLOSED.label),
             },
         )
 
@@ -434,7 +435,7 @@ class DemoTicketWriter:
             ActivityEventType.TICKET_RESOLVED,
             "marked the ticket as resolved.",
             closed_at,
-            metadata={"change": _change("status", previous_status.label, TicketStatus.CLOSED.label)},
+            metadata={"change": build_change("status", previous_status.label, TicketStatus.CLOSED.label)},
         )
 
     def _record_comments(
@@ -482,8 +483,3 @@ class DemoTicketWriter:
 
     def _add_comment(self, ticket: Ticket, author: User, body: str, commented_at: datetime) -> None:
         TicketComment.objects.create(ticket=ticket, author=author, body=body, created_at=commented_at)
-
-
-def _change(field: str, from_value: str, to_value: str) -> dict[str, str]:
-    """Build the display-ready before → after object the History view renders."""
-    return {"field": field, "from": from_value, "to": to_value}

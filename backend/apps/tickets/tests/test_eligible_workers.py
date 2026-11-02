@@ -28,7 +28,7 @@ class EligibleWorkersTests(APITestCase):
         response = self.get_eligible_workers()
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), {"results": [{"id": worker.id, "name": worker.name}]})
+        self.assertEqual(response.json(), {"results": [{"id": worker.id, "name": worker.name, "role": "WORKER", "role_label": "Technician"}]})
 
     def test_forwarded_ticket_lists_the_new_departments_workers_to_the_new_poc(self) -> None:
         new_department = create_department()

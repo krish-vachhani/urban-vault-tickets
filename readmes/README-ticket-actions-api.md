@@ -65,9 +65,9 @@ Example (illustrative values):
   "current_department": {"id": 1, "name": "Technical"},
   "workflow_stage": "PENDING_TECHNICIAN_ASSESSMENT",
   "status": "OPEN",
-  "created_by": {"id": 12, "name": "Chaitanya M"},
-  "current_poc": {"id": 20, "name": "Dhananjaya Murthy"},
-  "current_worker": {"id": 31, "name": "Prakash Kumar"},
+  "created_by": {"id": 12, "name": "Chaitanya M", "role": "CLIENT", "role_label": "Client POC"},
+  "current_poc": {"id": 20, "name": "Dhananjaya Murthy", "role": "DEPARTMENT_POC", "role_label": "Technical Manager"},
+  "current_worker": {"id": 31, "name": "Prakash Kumar", "role": "WORKER", "role_label": "Technician"},
   "assessment": null,
   "action_required": true,
   "available_actions": {
@@ -108,8 +108,8 @@ This is deliberately ticket-scoped, not a general department-worker directory.
 ```json
 {
   "results": [
-    {"id": 31, "name": "Prakash Kumar"},
-    {"id": 32, "name": "Rahul Sharma"}
+    {"id": 31, "name": "Prakash Kumar", "role": "WORKER", "role_label": "Technician"},
+    {"id": 32, "name": "Rahul Sharma", "role": "WORKER", "role_label": "Technician"}
   ]
 }
 ```
@@ -166,7 +166,7 @@ Return `201 Created`.
   "message": "Worker assigned successfully.",
   "ticket_id": 1042,
   "workflow_stage": "PENDING_TECHNICIAN_ASSESSMENT",
-  "worker": {"id": 31, "name": "Prakash Kumar"}
+  "worker": {"id": 31, "name": "Prakash Kumar", "role": "WORKER", "role_label": "Technician"}
 }
 ```
 
@@ -487,6 +487,22 @@ At minimum, add meaningful tests for:
 8. Concurrent or repeated invalid state-changing requests cannot create duplicate active assignments or assessments.
 
 The assignment requires at least four automated tests across API/business rules, authorization, Celery retry/failure, and a frontend interaction. The above list is a focused ticket-action test plan; Celery and frontend tests are specified in their own feature documents.
+
+## 13a. Response shapes and behaviours fixed in Phase 4
+
+The sections above leave these details open. They are recorded here so the frontend and the tests share one definition.
+
+- **`GET /history/`** returns two chronological lists, not a single `results` array:
+  `{"assignments": [...], "department_changes": [...]}`.
+  Each assignment item: `id` (`"assignment-{id}"`), `type` (`ASSIGNMENT`), `actor` (the POC who assigned), `worker`, `change` (`{field: "assignee", from, to}`, where `from` is `"Unassigned"` for the first assignment and the previous Worker's label for a later one), `assigned_at`, `ended_at`, `end_reason`.
+  Each department-change item: `id` (`"department-change-{id}"`), `type` (`DEPARTMENT_CHANGE`), `actor`, `change` (`{field: "department", from, to}`), `note`, `created_at`.
+- **`POST /comments/`** returns `201` with the new comment in the Activity item shape of §8 (`id: "comment-{id}"`, `type: "COMMENT"`, `description` = the body, `event_type`/`change`/`note` null), so the frontend can append it to the feed without a refetch.
+- **`POST /change-department/`** returns `200` with `{ticket_id, current_department, workflow_stage, status}`. **`POST /submit-assessment/`** returns `201` with `{ticket_id, outcome, workflow_stage, status}`. **`POST /mark-resolved/`** returns `200` with `{ticket_id, workflow_stage, status, closed_by, closed_at}`. Action responses are built from the result of the service call, never by re-reading the Ticket through the visibility scope: after forwarding, the forwarding POC no longer sees the Ticket but still receives their own successful response.
+- **Assessment permission and the 403/409 split.** "Caller is the Worker with the active assignment" is the 403 rule. A Worker whose assignment has ended (reassigned, or the Ticket was resolved) is not the active assignee and receives `403`; the active Worker submitting a second time receives `409`.
+- **Check order inside Assign Worker and Change Department.** Following `README-api-conventions.md` §3, body validation (`400`: unknown, inactive, or wrong-Department Worker; unknown, inactive, or unchanged destination Department) runs before the state check (`409`). Both run against the locked Ticket.
+- **Free-text limit.** The forwarding note, comment body, and Ticket description are limited to 5,000 characters (`400` beyond that).
+- **Eligible Workers** is a `GET` on the same router as the other actions; its behaviour is unchanged.
+- **Notification rows.** Phase 4 writes the `NotificationOutbox` rows inside each action's transaction (recipients per `README-async-processing.md` §3, never the actor, deduplicated). Publishing them to Celery after commit, and delivering them, is Phase 5.
 
 ## 14. Out of scope
 

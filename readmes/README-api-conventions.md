@@ -115,6 +115,7 @@ User summaries never include email addresses or other profile fields. Only `GET 
 - A well-formed but unknown filter ID (for example `client_id=999`) returns an **empty result**, never an error and never a broader result.
 - A malformed value (for example `client_id=abc`, `page=0`, `page_size=500`) returns `400 VALIDATION_ERROR`.
 - An unsupported enumerated value (`tab`, `ordering`, `workflow_stage`, Activity `type`) returns `400 VALIDATION_ERROR`.
+- A `page` number beyond the last page returns `400 VALIDATION_ERROR` on `page`. An empty listing (no matching records) is a normal `200` with an empty `results` array.
 - Filters always narrow the user's visible queryset; they never grant access.
 
 ## 8. Timestamps and ticket references

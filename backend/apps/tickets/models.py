@@ -115,6 +115,18 @@ class Ticket(models.Model):
     def ticket_number(self) -> str:
         return f"TKT-{self.pk}"
 
+    @property
+    def is_closed(self) -> bool:
+        return self.status == TicketStatus.CLOSED
+
+    @property
+    def is_awaiting_worker_assignment(self) -> bool:
+        return self.workflow_stage == WorkflowStage.PENDING_TECHNICIAN_ASSIGNMENT and self.status == TicketStatus.OPEN
+
+    @property
+    def is_awaiting_assessment(self) -> bool:
+        return self.workflow_stage == WorkflowStage.PENDING_TECHNICIAN_ASSESSMENT and self.status == TicketStatus.OPEN
+
     def __str__(self) -> str:
         return self.ticket_number
 

@@ -261,13 +261,15 @@ GET /api/v1/tickets/{ticket_id}/eligible-workers/
 
 Purpose: Populate the Worker selector in the Department POC's Assign Worker panel.
 
+Each Worker is a user summary (`README-api-conventions.md` §6), so `role` is always `WORKER` and `role_label` is `Technician`.
+
 Example response:
 
 ```json
 {
   "results": [
-    { "id": 31, "name": "Prakash Kumar" },
-    { "id": 32, "name": "Rahul Sharma" }
+    { "id": 31, "name": "Prakash Kumar", "role": "WORKER", "role_label": "Technician" },
+    { "id": 32, "name": "Rahul Sharma", "role": "WORKER", "role_label": "Technician" }
   ]
 }
 ```
