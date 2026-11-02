@@ -8,8 +8,8 @@ export function NotFoundPage() {
       <Typography component="h1" variant="h4">
         Page not found
       </Typography>
-      <Button component={RouterLink} to="/" variant="contained">
-        Go to the start page
+      <Button component={RouterLink} to="/tickets" variant="contained">
+        Back to tickets
       </Button>
     </main>
   );

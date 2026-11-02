@@ -1,5 +1,6 @@
 import { BrowserRouter } from "react-router";
 
+import { AuthProvider } from "../features/auth/context/AuthProvider";
 import { AppRoutes } from "./AppRoutes";
 import { AppProviders } from "./providers/AppProviders";
 import { createAppQueryClient } from "./providers/queryClient";
@@ -11,7 +12,9 @@ export function App() {
   return (
     <AppProviders queryClient={queryClient}>
       <BrowserRouter>
-        <AppRoutes />
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </AppProviders>
   );
