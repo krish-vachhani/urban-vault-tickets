@@ -122,11 +122,13 @@ class DispatchDueNotificationsTests(TestCase):
 
     def test_an_unreachable_broker_stops_the_run_and_leaves_the_rows_pending(self) -> None:
         rows = [create_outbox_row(), create_outbox_row()]
-        self.celery_app.send_task.side_effect = ConnectionError("redis is down")
+        self.celery_app.send_task.side_effect = ConnectionError("private-broker-details")
 
-        with self.assertLogs("apps.notifications.publishing", level="ERROR"):
+        with self.assertLogs("apps.notifications.publishing", level="ERROR") as logs:
             result = dispatch_due_notifications()
 
+        self.assertTrue(all("private-broker-details" not in entry for entry in logs.output))
+        self.assertTrue(all(record.exc_info is None for record in logs.records))
         self.assertEqual(result.rows_published, 0)
         self.assertEqual(self.celery_app.send_task.call_count, 1)
         for row in rows:

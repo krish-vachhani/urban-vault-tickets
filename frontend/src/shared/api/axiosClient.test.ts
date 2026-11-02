@@ -3,10 +3,18 @@ import { AxiosError } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { apiClient } from "./axiosClient";
-import { authClient, setAccessToken, setAuthenticationFailureHandler } from "./authSession";
+import { authClient, getAccessToken, setAccessToken, setAuthenticationFailureHandler } from "./authSession";
 
 const EXPIRED_TOKEN = "expired-token";
 const FRESH_TOKEN = "fresh-token";
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((finish) => {
+    resolve = finish;
+  });
+  return { promise, resolve };
+}
 
 function respond(config: InternalAxiosRequestConfig, status: number, data: unknown): Promise<AxiosResponse> {
   const response: AxiosResponse = { data, status, statusText: "", headers: {}, config };
@@ -127,5 +135,60 @@ describe("apiClient token handling", () => {
     await apiClient.get("/public");
 
     expect(sentAuthorization).toBeUndefined();
+  });
+
+  it("does not replay the previous account's mutation after switching accounts", async () => {
+    let rejectOldRequest!: () => void;
+    const requestStarted = deferred();
+    const attemptedTokens: unknown[] = [];
+    apiClient.defaults.adapter = (config) => {
+      attemptedTokens.push(config.headers.get("Authorization"));
+      if (attemptedTokens.length > 1) {
+        return respond(config, 200, {});
+      }
+      requestStarted.resolve();
+      return new Promise((resolve, reject) => {
+        rejectOldRequest = () => void respond(config, 401, {}).then(resolve, reject);
+      });
+    };
+
+    const oldRequest = apiClient.post("/tickets/1/comments/", { body: "From the previous account" });
+    const rejectedRequest = expect(oldRequest).rejects.toMatchObject({ code: "ERR_CANCELED" });
+    await requestStarted.promise;
+    setAccessToken(null); // logout clears the previous session
+    setAccessToken("another-account-token");
+    rejectOldRequest();
+
+    await rejectedRequest;
+    expect(attemptedTokens).toEqual([`Bearer ${EXPIRED_TOKEN}`]);
+    expect(refreshRequests).toBe(0);
+    expect(onAuthenticationFailure).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "another-account-token"])("keeps the current token %s when an old session's refresh finishes", async (currentToken) => {
+    const refreshStarted = deferred();
+    const finishRefresh = deferred();
+    authClient.defaults.adapter = async (config) => {
+      if (config.url === "/auth/csrf/") {
+        return respond(config, 200, { csrf_token: "csrf" });
+      }
+      refreshStarted.resolve();
+      await finishRefresh.promise;
+      return respond(config, 200, { access: FRESH_TOKEN });
+    };
+
+    const oldRequest = apiClient.get("/tickets/");
+    const rejectedRequest = expect(oldRequest).rejects.toMatchObject({ response: { status: 401 } });
+    await refreshStarted.promise;
+    setAccessToken(null);
+    if (currentToken !== null) {
+      setAccessToken(currentToken);
+    }
+    finishRefresh.resolve();
+
+    await rejectedRequest;
+    expect(getAccessToken()).toBe(currentToken);
+    expect(attemptsByUrl["/tickets/"]).toBe(1);
+    expect(onAuthenticationFailure).not.toHaveBeenCalled();
   });
 });

@@ -117,12 +117,14 @@ class ProcessNotificationTests(TestCase):
         self.assertEqual(self.row.last_error, "PermanentDeliveryError: The recipient account is inactive.")
 
     def test_an_unexpected_error_is_retried_and_its_message_is_not_stored(self) -> None:
-        with self.assertLogs("apps.notifications.processing", level="ERROR"):
+        with self.assertLogs("apps.notifications.processing", level="ERROR") as logs:
             self.process(side_effect=RuntimeError("could not connect to redis://:s3cret@host"))
 
         self.assertEqual(self.row.status, OutboxStatus.PENDING)
         self.assertEqual(self.row.last_error, "RuntimeError: unexpected error during delivery.")
         self.assertNotIn("s3cret", self.row.last_error)
+        self.assertTrue(all("s3cret" not in entry for entry in logs.output))
+        self.assertTrue(all(record.exc_info is None for record in logs.records))
 
     def test_a_late_result_does_not_overwrite_a_state_set_meanwhile(self) -> None:
         def dispatcher_resets_the_row_during_delivery(outbox: NotificationOutbox) -> None:

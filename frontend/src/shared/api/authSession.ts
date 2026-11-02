@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { CanceledError } from "axios";
 
 import { API_BASE_URL } from "./apiConfig";
 
@@ -22,12 +22,21 @@ export const authClient = axios.create({
 // --- Access token (memory only: never localStorage, sessionStorage, or a URL) ---
 
 let accessToken: string | null = null;
+let sessionVersion = 0;
+
+/** Token rotation stays in the same session; clearing it ends that session's requests. */
+export function getSessionVersion(): number {
+  return sessionVersion;
+}
 
 export function getAccessToken(): string | null {
   return accessToken;
 }
 
 export function setAccessToken(token: string | null): void {
+  if (token === null) {
+    sessionVersion += 1;
+  }
   accessToken = token;
 }
 
@@ -56,10 +65,17 @@ type RefreshResponse = { access: string };
 let refreshInFlight: Promise<string> | null = null;
 
 async function requestNewAccessToken(): Promise<string> {
+  const refreshingSessionVersion = getSessionVersion();
   const csrfToken = await getCsrfToken();
+  if (refreshingSessionVersion !== getSessionVersion()) {
+    throw new CanceledError("The authentication session has ended.");
+  }
   const response = await authClient.post<RefreshResponse>("/auth/refresh/", undefined, {
     headers: { "X-CSRFToken": csrfToken },
   });
+  if (refreshingSessionVersion !== getSessionVersion()) {
+    throw new CanceledError("The authentication session has ended.");
+  }
   setAccessToken(response.data.access);
   return response.data.access;
 }

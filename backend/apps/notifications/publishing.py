@@ -23,8 +23,9 @@ def publish_notification(outbox_id: int) -> bool:
     """
     try:
         celery_app.send_task(DELIVER_TASK_NAME, args=[outbox_id])
-    except Exception:  # Kombu and Redis raise many unrelated error types
-        logger.exception("notification_publish_failed outbox_id=%s", outbox_id)
+    except Exception as error:  # Kombu and Redis raise many unrelated error types
+        # Broker exceptions may include credentials; keep only the type and our own identifiers.
+        logger.error("notification_publish_failed outbox_id=%s error_type=%s", outbox_id, type(error).__name__)
         return False
 
     _record_publish(outbox_id)

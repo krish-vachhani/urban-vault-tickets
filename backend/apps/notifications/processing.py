@@ -39,7 +39,8 @@ def process_notification(outbox_id: int) -> None:
         _record_failure(outbox, error, can_retry=False)
     except Exception as error:  # a transient error, or an unexpected one that must not leave the row PROCESSING
         if not isinstance(error, DeliveryError):
-            logger.exception("notification_unexpected_error %s", _describe(outbox))
+            # Arbitrary exception text can contain provider credentials or connection strings.
+            logger.error("notification_unexpected_error %s error_type=%s", _describe(outbox), type(error).__name__)
         _record_failure(outbox, error, can_retry=True)
     else:
         _record_success(outbox)
