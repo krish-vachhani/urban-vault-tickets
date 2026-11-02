@@ -8,6 +8,11 @@ to start without them.
 from datetime import timedelta
 from pathlib import Path
 
+from apps.notifications.constants import (
+    DEFAULT_REDISPATCH_INTERVAL_SECONDS,
+    DISPATCH_SCHEDULE_SECONDS,
+    DISPATCH_TASK_NAME,
+)
 from config.env import (
     get_bool_env,
     get_int_env,
@@ -143,6 +148,16 @@ REST_FRAMEWORK = {
 CELERY_BROKER_URL = get_required_env("REDIS_URL")
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_TIMEZONE = "UTC"
+
+# Exactly one Beat instance runs this schedule (README-infrastructure-deployment.md §7).
+CELERY_BEAT_SCHEDULE = {
+    "dispatch-pending-notifications": {"task": DISPATCH_TASK_NAME, "schedule": DISPATCH_SCHEDULE_SECONDS},
+}
+
+# How long a published-but-unprocessed outbox row waits before it is published again.
+NOTIFICATION_REDISPATCH_INTERVAL_SECONDS = get_int_env(
+    "NOTIFICATION_REDISPATCH_INTERVAL_SECONDS", default=DEFAULT_REDISPATCH_INTERVAL_SECONDS
+)
 
 # --- Internationalization ------------------------------------------------------------------
 

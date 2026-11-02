@@ -5,8 +5,9 @@ Delivery design: readmes/README-async-processing.md.
 
 An outbox row is created in the same database transaction as the ticket action
 that needs a notification, so PostgreSQL always remembers the intent to notify.
-This module only defines the table; creating, dispatching, and delivering rows
-is Phase 5. Ticket-side models are referenced by string to avoid import cycles.
+This module only defines the table; creating, publishing, delivering, and recovering rows
+live in services.py, publishing.py, processing.py, and dispatching.py.
+Ticket-side models are referenced by string to avoid import cycles.
 """
 
 from django.conf import settings
@@ -14,8 +15,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-# Total delivery attempts allowed, including the first one.
-MAX_DELIVERY_ATTEMPTS = 4
+from apps.notifications.constants import MAX_DELIVERY_ATTEMPTS
 
 
 class NotificationEventType(models.TextChoices):

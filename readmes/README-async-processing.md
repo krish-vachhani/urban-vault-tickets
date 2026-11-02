@@ -108,7 +108,7 @@ Each execution uses a short claim transaction followed by delivery and finalizat
 
 1. In a short `transaction.atomic()` block, load the outbox row with `select_for_update()`.
 2. Return without delivery if its status is `SENT` or `FAILED` (both terminal).
-3. If its status is `PROCESSING` and `processing_started_at` is still fresh, return without starting a concurrent delivery.
+3. If its status is `PROCESSING` and `processing_started_at` is still fresh, return without starting a concurrent delivery. A `PROCESSING` row whose lease has expired is also left alone: only the dispatcher (§9) resets abandoned rows, because claiming one here could push `attempt_count` past the 4-attempt limit.
 4. If `next_attempt_at` is still in the future, return; this is a duplicate or early message, and the dispatcher will publish the row when it is due.
 5. Otherwise increment `attempt_count`, set `PROCESSING` and `processing_started_at`, then commit the claim.
 6. Invoke the simulated delivery adapter outside the claim transaction.

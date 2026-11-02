@@ -6,6 +6,7 @@ case wraps everything in one transaction and cannot show row locks at work.
 
 import threading
 from collections.abc import Callable
+from unittest.mock import patch
 
 from django.db import connection
 from django.test import TransactionTestCase
@@ -43,6 +44,12 @@ def run_at_the_same_time(operations: list[Callable[[], object]]) -> list[object]
 
 
 class ConcurrentActionTests(TransactionTestCase):
+    def setUp(self) -> None:
+        # These tests commit for real, so the on-commit publish would reach the live Redis broker.
+        publish_patcher = patch("apps.notifications.services.publish_notification")
+        publish_patcher.start()
+        self.addCleanup(publish_patcher.stop)
+
     def test_two_pocs_assigning_different_workers_at_once_create_one_active_assignment(self) -> None:
         scene = create_scene()
         second_worker = create_worker(scene.department)
