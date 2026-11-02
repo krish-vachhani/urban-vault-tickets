@@ -80,7 +80,21 @@ class SuccessfulCreationTests(TicketCreationTestCase):
         created, routed = TicketActivity.objects.order_by("id")
         self.assertEqual((created.event_type, created.actor), (ActivityEventType.TICKET_CREATED, self.client_user))
         self.assertEqual((routed.event_type, routed.actor), (ActivityEventType.TICKET_ROUTED, None))
-        self.assertEqual(routed.metadata, {"department_id": self.department.id})
+        self.assertEqual(
+            routed.metadata,
+            {
+                "department_id": self.department.id,
+                "change": {
+                    "field": "assignee",
+                    "from": "Unassigned",
+                    "to": f"{self.department.poc_user.name} ({self.department.name} Manager)",
+                },
+            },
+        )
+
+        feed = self.client.get(f"{TICKETS_URL}{created.ticket_id}/activities/").json()
+        routing_item = next(item for item in feed["results"] if item["event_type"] == "TICKET_ROUTED")
+        self.assertEqual(routing_item["change"], routed.metadata["change"])
 
     def test_creation_queues_notifications_for_the_facility_manager_and_department_poc(self) -> None:
         self.post_ticket(self.client_user)

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError } from "axios";
 import { Route, Routes, useLocation } from "react-router";
@@ -116,6 +116,29 @@ describe("TicketActions: submitting an action", () => {
 
     expect(assignWorker).toHaveBeenCalledWith(42, technician.id);
     expect(onActionSucceeded).toHaveBeenCalledWith("Worker assigned successfully.");
+  });
+
+  it("prevents duplicate assignment and panel remounting while an action is pending", async () => {
+    let finishAssignment!: (result: Awaited<ReturnType<typeof ticketsApi.assignWorker>>) => void;
+    const assignWorker = vi.spyOn(ticketsApi, "assignWorker").mockReturnValue(
+      new Promise((resolve) => { finishAssignment = resolve; }),
+    );
+    renderActions(ticketWithActions({ can_assign_worker: true, can_change_department: true }));
+    await userEvent.click(screen.getByRole("button", { name: "Assign Worker" }));
+    await userEvent.click(await screen.findByRole("combobox", { name: "Select worker" }));
+    await userEvent.click(await screen.findByRole("option", { name: /Prakash Kumar/ }));
+    await userEvent.dblClick(screen.getByRole("button", { name: "Ok" }));
+
+    expect(await screen.findByRole("button", { name: "Assigning…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Assign Worker" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Change Department" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Assign Worker" }));
+    expect(screen.getByRole("combobox", { name: "Select worker" })).toBeInTheDocument();
+    expect(assignWorker).toHaveBeenCalledTimes(1);
+    await act(async () => finishAssignment({
+      ticket_id: 42, workflow_stage: "PENDING_TECHNICIAN_ASSESSMENT", worker: technician,
+      message: "Worker assigned successfully.",
+    }));
   });
 
   it("asks the POC to choose a Worker before calling the API", async () => {

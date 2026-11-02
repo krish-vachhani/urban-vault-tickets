@@ -1,3 +1,5 @@
+import { useQueryClient } from "@tanstack/react-query";
+import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import Pagination from "@mui/material/Pagination";
 import Paper from "@mui/material/Paper";
@@ -6,7 +8,7 @@ import { useState } from "react";
 
 import { ErrorMessage } from "../../../shared/components/ErrorMessage";
 import { LoadingIndicator } from "../../../shared/components/LoadingIndicator";
-import { ACTIVITY_PAGE_SIZE, useTicketActivities } from "../hooks/useTicketActivities";
+import { ACTIVITY_PAGE_SIZE, ticketActivityQueryOptions, useTicketActivities } from "../hooks/useTicketActivities";
 import type { ActivityFilter } from "../types/ticket.types";
 import { ActivityItemRow } from "./ActivityItemRow";
 import { CommentForm } from "./CommentForm";
@@ -23,8 +25,10 @@ const FILTER_CHOICES: { filter: ActivityFilter; label: string }[] = [
 
 /** The ticket's Activity feed (oldest first) with its filter chips, plus the pinned comment box. */
 export function TicketActivity({ ticketId }: TicketActivityProps) {
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<ActivityFilter>("ALL");
   const [page, setPage] = useState(1);
+  const [commentPosted, setCommentPosted] = useState(false);
   const activitiesQuery = useTicketActivities(ticketId, filter, page);
 
   const eventCount = activitiesQuery.data?.count ?? 0;
@@ -37,10 +41,20 @@ export function TicketActivity({ ticketId }: TicketActivityProps) {
   }
 
   // A new comment is the newest event, so show the last page of the full feed.
-  function showNewComment() {
-    const eventCountWithComment = filter === "ALL" ? eventCount + 1 : 1;
+  async function showNewComment() {
+    setCommentPosted(true);
     setFilter("ALL");
-    setPage(Math.ceil(eventCountWithComment / ACTIVITY_PAGE_SIZE));
+    try {
+      // A filtered count (or cached All count) cannot locate the newly saved comment.
+      const fullFeed = await queryClient.fetchQuery({
+        ...ticketActivityQueryOptions(ticketId, "ALL", 1),
+        staleTime: 0,
+      });
+      setPage(Math.max(1, Math.ceil(fullFeed.count / ACTIVITY_PAGE_SIZE)));
+    } catch {
+      // The comment is already saved. Show the normal feed error/Retry without resubmitting it.
+      setPage(1);
+    }
   }
 
   function renderFeed() {
@@ -71,6 +85,11 @@ export function TicketActivity({ ticketId }: TicketActivityProps) {
   return (
     <>
       <Paper component="section" aria-labelledby="activity-heading" variant="outlined" className="flex flex-col gap-3 p-3">
+        {commentPosted && (
+          <Alert severity="success" onClose={() => setCommentPosted(false)}>
+            Comment posted.
+          </Alert>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <Typography id="activity-heading" component="h2" variant="subtitle1" className="font-semibold">
             Activity

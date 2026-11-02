@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { parseApiError } from "../../../../shared/api/apiError";
@@ -23,17 +23,25 @@ export function AssignWorkerForm({ ticketId, onSuccess }: AssignWorkerFormProps)
   const eligibleWorkersQuery = useEligibleWorkers(ticketId);
   const assignWorkerMutation = useAssignWorker(ticketId);
   const [formError, setFormError] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
   const { control, handleSubmit, setError } = useForm<AssignWorkerFormValues>({
     resolver: zodResolver(assignWorkerSchema),
     defaultValues: {},
   });
 
   function assign(values: AssignWorkerFormValues) {
+    if (submissionInFlight.current) {
+      return;
+    }
+    submissionInFlight.current = true;
     setFormError(null);
     assignWorkerMutation.mutate(values.workerId, {
       onSuccess: (result) => onSuccess(result.message),
       onError: (error) =>
         setFormError(applyServerFieldErrors(parseApiError(error), setError, { worker_id: "workerId" })),
+      onSettled: () => {
+        submissionInFlight.current = false;
+      },
     });
   }
 

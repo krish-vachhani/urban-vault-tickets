@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { parseApiError } from "../../../shared/api/apiError";
@@ -13,26 +13,34 @@ import { commentSchema, type CommentFormValues } from "../schemas/ticketActionSc
 
 type CommentFormProps = {
   ticketId: number;
-  onCommentPosted: () => void;
+  onCommentPosted: () => Promise<void>;
 };
 
 /** The "Write a comment / Post" box. It stays pinned to the bottom of the screen on the detail page. */
 export function CommentForm({ ticketId, onCommentPosted }: CommentFormProps) {
   const addCommentMutation = useAddComment(ticketId);
   const [formError, setFormError] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
   const { control, handleSubmit, setError, reset } = useForm<CommentFormValues>({
     resolver: zodResolver(commentSchema),
     defaultValues: { body: "" },
   });
 
   function postComment(values: CommentFormValues) {
+    if (submissionInFlight.current) {
+      return;
+    }
+    submissionInFlight.current = true;
     setFormError(null);
     addCommentMutation.mutate(values.body, {
-      onSuccess: () => {
+      onSuccess: async () => {
         reset();
-        onCommentPosted();
+        await onCommentPosted();
       },
       onError: (error) => setFormError(applyServerFieldErrors(parseApiError(error), setError, { body: "body" })),
+      onSettled: () => {
+        submissionInFlight.current = false;
+      },
     });
   }
 

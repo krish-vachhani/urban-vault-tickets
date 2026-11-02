@@ -1,8 +1,10 @@
+import { useIsMutating } from "@tanstack/react-query";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import { useState } from "react";
 
+import { ticketKeys } from "../api/ticketKeys";
 import type { TicketDetail } from "../types/ticket.types";
 import { AssignWorkerForm } from "./actions/AssignWorkerForm";
 import { ChangeDepartmentForm } from "./actions/ChangeDepartmentForm";
@@ -24,6 +26,7 @@ type ActionPanel = "assign-worker" | "change-department" | "submit-assessment" |
  */
 export function TicketActions({ ticket, onActionSucceeded }: TicketActionsProps) {
   const [openPanel, setOpenPanel] = useState<ActionPanel | null>(null);
+  const isActionPending = useIsMutating({ mutationKey: ticketKeys.actions(ticket.id) }) > 0;
   const actions = ticket.available_actions;
 
   const hasAnyAction =
@@ -51,6 +54,7 @@ export function TicketActions({ ticket, onActionSucceeded }: TicketActionsProps)
         variant={isOpen ? "contained" : "outlined"}
         aria-expanded={isOpen}
         aria-controls={`${panel}-panel`}
+        disabled={isActionPending}
         onClick={() => togglePanel(panel)}
       >
         {label}

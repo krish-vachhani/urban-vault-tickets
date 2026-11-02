@@ -8,6 +8,7 @@ export const ticketKeys = {
   filterOptions: () => [...ticketKeys.all, "filter-options"] as const,
   details: () => [...ticketKeys.all, "detail"] as const,
   detail: (ticketId: number) => [...ticketKeys.details(), ticketId] as const,
+  actions: (ticketId: number) => [...ticketKeys.all, ticketId, "actions"] as const,
   activities: (ticketId: number, type: ActivityFilter, page: number) =>
     [...ticketKeys.all, ticketId, "activities", type, page] as const,
   eligibleWorkers: (ticketId: number) => [...ticketKeys.all, ticketId, "eligible-workers"] as const,

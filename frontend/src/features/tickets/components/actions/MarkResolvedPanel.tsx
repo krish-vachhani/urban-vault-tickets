@@ -1,6 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
+import { useRef } from "react";
 
 import { parseApiError } from "../../../../shared/api/apiError";
 import { useMarkResolved } from "../../hooks/useTicketMutations";
@@ -13,10 +14,18 @@ type MarkResolvedPanelProps = {
 /** Client (or the ticket's creator): confirm that the issue is resolved and close the ticket. */
 export function MarkResolvedPanel({ ticketId, onSuccess }: MarkResolvedPanelProps) {
   const markResolvedMutation = useMarkResolved(ticketId);
+  const submissionInFlight = useRef(false);
 
   function markResolved() {
+    if (submissionInFlight.current) {
+      return;
+    }
+    submissionInFlight.current = true;
     markResolvedMutation.mutate(undefined, {
       onSuccess: () => onSuccess("Ticket marked as resolved and moved to Closed Tickets."),
+      onSettled: () => {
+        submissionInFlight.current = false;
+      },
     });
   }
 

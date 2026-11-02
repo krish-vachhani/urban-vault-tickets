@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 
@@ -26,12 +26,17 @@ export function ChangeDepartmentForm({ ticketId, currentDepartmentId }: ChangeDe
   const departmentsQuery = useDepartments();
   const changeDepartmentMutation = useChangeDepartment(ticketId);
   const [formError, setFormError] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
   const { control, handleSubmit, setError } = useForm<ChangeDepartmentFormValues>({
     resolver: zodResolver(changeDepartmentSchema),
     defaultValues: { forwardingNote: "" },
   });
 
   function forward(values: ChangeDepartmentFormValues) {
+    if (submissionInFlight.current) {
+      return;
+    }
+    submissionInFlight.current = true;
     setFormError(null);
     changeDepartmentMutation.mutate(values, {
       // The forwarding POC no longer sees this ticket once it is in another Department,
@@ -47,6 +52,9 @@ export function ChangeDepartmentForm({ ticketId, currentDepartmentId }: ChangeDe
             forwarding_note: "forwardingNote",
           }),
         ),
+      onSettled: () => {
+        submissionInFlight.current = false;
+      },
     });
   }
 

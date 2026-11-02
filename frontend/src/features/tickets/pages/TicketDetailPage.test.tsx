@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError } from "axios";
 import { Route, Routes } from "react-router";
@@ -73,9 +73,14 @@ function notFoundError(): AxiosError {
 }
 
 function mockActivities(items: ActivityItem[] = ACTIVITY_FEED) {
-  return vi.spyOn(ticketsApi, "getActivities").mockImplementation(async (_ticketId, type) => {
+  return vi.spyOn(ticketsApi, "getActivities").mockImplementation(async (_ticketId, type, page, pageSize) => {
     const matching = items.filter((item) => type === "ALL" || (type === "ACTIONS") === (item.type === "ACTION"));
-    return { count: matching.length, next: null, previous: null, results: matching };
+    return {
+      count: matching.length,
+      next: null,
+      previous: null,
+      results: matching.slice((page - 1) * pageSize, page * pageSize),
+    };
   });
 }
 
@@ -171,6 +176,84 @@ describe("TicketDetailPage", () => {
 
     expect(await screen.findByText("A comment is required.")).toBeInTheDocument();
     expect(addComment).not.toHaveBeenCalled();
+  });
+
+  it.each(["All", "Actions", "Comments"])("shows the new comment on the last full-feed page after posting from %s", async (filter) => {
+    const items: ActivityItem[] = Array.from({ length: 40 }, (_, index) => ({
+      ...ACTIVITY_FEED[index % 2 === 0 ? 0 : 3]!,
+      id: `event-${index}`,
+      description: `Existing event ${index}`,
+    }));
+    const getActivities = mockActivities(items);
+    vi.spyOn(ticketsApi, "addComment").mockImplementation(async () => {
+      const comment = { ...ACTIVITY_FEED[3]!, id: "comment-new", description: "Newest comment" };
+      items.push(comment);
+      return comment;
+    });
+    renderDetail();
+    await screen.findByText("40 events");
+    await userEvent.click(screen.getByRole("button", { name: filter }));
+    if (filter !== "All") await screen.findByText("20 events");
+
+    await userEvent.type(screen.getByLabelText("Write a comment"), "Newest comment");
+    await userEvent.click(screen.getByRole("button", { name: "Post" }));
+
+    expect(await screen.findByText("Newest comment")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    expect(getActivities).toHaveBeenLastCalledWith(42, "ALL", 3, 20, expect.anything());
+  });
+
+  it("does not post duplicate comments while a request is pending", async () => {
+    mockActivities();
+    let finishPosting!: (comment: ActivityItem) => void;
+    const addComment = vi.spyOn(ticketsApi, "addComment").mockReturnValue(
+      new Promise((resolve) => { finishPosting = resolve; }),
+    );
+    renderDetail();
+    await screen.findByText("4 events");
+    await userEvent.type(screen.getByLabelText("Write a comment"), "Only once");
+    await userEvent.dblClick(screen.getByRole("button", { name: "Post" }));
+
+    expect(await screen.findByRole("button", { name: "Posting…" })).toBeDisabled();
+    expect(addComment).toHaveBeenCalledTimes(1);
+    await act(async () => finishPosting({ ...ACTIVITY_FEED[3]!, description: "Only once" }));
+  });
+
+  it("keeps a saved comment successful when the follow-up feed request fails", async () => {
+    const getActivities = mockActivities();
+    const addComment = vi.spyOn(ticketsApi, "addComment").mockImplementation(async () => {
+      getActivities.mockRejectedValue(new Error("feed unavailable"));
+      return { ...ACTIVITY_FEED[3]!, description: "Saved comment" };
+    });
+    renderDetail();
+    await screen.findByText("4 events");
+    await userEvent.type(screen.getByLabelText("Write a comment"), "Saved comment");
+    await userEvent.click(screen.getByRole("button", { name: "Post" }));
+
+    expect(await screen.findByText("Comment posted.")).toBeInTheDocument();
+    expect(await screen.findByText("Could not load the activity.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Write a comment")).toHaveValue("");
+    expect(addComment).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses a fresh full-feed count when other events arrive during comment submission", async () => {
+    const items = Array.from({ length: 20 }, (_, index) => ({ ...ACTIVITY_FEED[0]!, id: `action-${index}` }));
+    mockActivities(items);
+    vi.spyOn(ticketsApi, "addComment").mockImplementation(async () => {
+      for (let index = 20; index < 40; index += 1) {
+        items.push({ ...ACTIVITY_FEED[0]!, id: `action-${index}` });
+      }
+      const comment = { ...ACTIVITY_FEED[3]!, id: "latest", description: "Latest after concurrent events" };
+      items.push(comment);
+      return comment;
+    });
+    renderDetail();
+    await screen.findByText("20 events");
+    await userEvent.type(screen.getByLabelText("Write a comment"), "Latest after concurrent events");
+    await userEvent.click(screen.getByRole("button", { name: "Post" }));
+
+    expect(await screen.findByText("Latest after concurrent events")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "page 3" })).toHaveAttribute("aria-current", "page");
   });
 
   it("shows the action panel the backend says this user may use", async () => {

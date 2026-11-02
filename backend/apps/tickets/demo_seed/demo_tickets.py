@@ -366,7 +366,10 @@ class DemoTicketWriter:
             ActivityEventType.TICKET_ROUTED,
             f"Ticket routed to the {department.name} department.",
             created_at + ROUTING_DELAY,
-            metadata={"department_id": department.id},
+            metadata={
+                "department_id": department.id,
+                "change": build_change("assignee", "Unassigned", get_name_with_role_label(department.poc_user)),
+            },
         )
 
     def _record_forwarding(

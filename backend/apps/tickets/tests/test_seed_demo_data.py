@@ -23,6 +23,7 @@ from apps.tickets.models import (
     ActivityEventType,
     AssessmentOutcome,
     Ticket,
+    TicketActivity,
     TicketAssignment,
     TicketComment,
     TicketIssue,
@@ -280,6 +281,20 @@ class SeedDemoDataTests(TestCase):
 
         self.assertGreater(ticket.count(), 0)
         self.assertEqual(set(ticket.values_list("activity_count", flat=True)), {4})
+
+    def test_initial_routing_history_names_the_original_department_poc(self) -> None:
+        routed_events = TicketActivity.objects.filter(event_type=ActivityEventType.TICKET_ROUTED).select_related(
+            "ticket__origin_department__poc_user"
+        )
+        self.assertEqual(routed_events.count(), Ticket.objects.count())
+        for event in routed_events:
+            department = event.ticket.origin_department
+            with self.subTest(ticket=event.ticket_id):
+                self.assertEqual(event.metadata["department_id"], department.id)
+                self.assertEqual(event.metadata["change"], {
+                    "field": "assignee", "from": "Unassigned",
+                    "to": f"{department.poc_user.name} ({department.name} Manager)",
+                })
 
 
 class SeededTicketIntegrityTests(TestCase):

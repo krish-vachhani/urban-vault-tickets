@@ -81,7 +81,10 @@ def create_ticket(
             None,
             ActivityEventType.TICKET_ROUTED,
             f"Ticket routed to the {department.name} department.",
-            metadata={"department_id": department.id},
+            metadata={
+                "department_id": department.id,
+                "change": build_change("assignee", "Unassigned", get_name_with_role_label(department.poc_user)),
+            },
         )
         create_notifications(
             ticket=ticket,

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -88,6 +88,71 @@ function renderForm(role: "CLIENT" | "FACILITY_MANAGER" | "DEPARTMENT_POC" = "CL
 describe("TicketForm", () => {
   beforeEach(() => {
     mockReferenceData();
+  });
+
+  it("filters Client choices by typed text and selects one with the keyboard", async () => {
+    renderForm();
+    const clientInput = await screen.findByRole("combobox", { name: "Client" });
+
+    await userEvent.type(clientInput, "acm");
+
+    expect(await screen.findByRole("option", { name: "Acme" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Harness" })).not.toBeInTheDocument();
+    await userEvent.keyboard("{ArrowDown}{Enter}{Tab}");
+    expect(await screen.findByText("Office: Acme-0410")).toBeInTheDocument();
+  });
+
+  it("shows Quick Issues loading feedback while the request is pending", async () => {
+    vi.spyOn(referenceDataApi, "getQuickIssues").mockReturnValue(new Promise(() => {}));
+    renderForm();
+    await chooseOption("Client", "Acme");
+
+    expect(await screen.findByRole("progressbar", { name: "Loading quick issues" })).toBeInTheDocument();
+  });
+
+  it("shows a Quick Issues error and retries without blocking ordinary Issue selection", async () => {
+    vi.spyOn(referenceDataApi, "getQuickIssues")
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(harnessQuickIssues);
+    renderForm();
+    await chooseOption("Client", "Acme");
+
+    expect(await screen.findByText("Could not load quick issues.")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /Issue\(s\)/ })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("group", { name: "Quick Issues - tap to autofill" })).toBeInTheDocument();
+    expect(screen.queryByText("Could not load quick issues.")).not.toBeInTheDocument();
+  });
+
+  it("does not submit a second ticket while creation is pending", async () => {
+    let finishCreation!: (ticket: ReturnType<typeof buildTicketDetail>) => void;
+    const createTicket = vi.spyOn(ticketsApi, "createTicket").mockReturnValue(
+      new Promise((resolve) => { finishCreation = resolve; }),
+    );
+    renderForm();
+    await chooseOption("Client", "Acme");
+    await chooseIssue("AC not cooling");
+    await userEvent.dblClick(screen.getByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByRole("button", { name: "Submitting…" })).toBeDisabled();
+    expect(createTicket).toHaveBeenCalledTimes(1);
+    await act(async () => finishCreation(buildTicketDetail()));
+  });
+
+  it("allows a corrected retry after a failed ticket submission", async () => {
+    const createTicket = vi.spyOn(ticketsApi, "createTicket")
+      .mockRejectedValueOnce(new Error("unavailable"))
+      .mockResolvedValue(buildTicketDetail());
+    const { onCreated } = renderForm();
+    await chooseOption("Client", "Acme");
+    await chooseIssue("AC not cooling");
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await screen.findByRole("alert");
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(createTicket).toHaveBeenCalledTimes(2);
+    expect(onCreated).toHaveBeenCalledOnce();
   });
 
   it("walks through Client, Office, Floors, and Issues, then submits the matching payload", async () => {

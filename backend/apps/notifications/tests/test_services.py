@@ -1,3 +1,6 @@
+from unittest.mock import patch
+
+from django.db import transaction
 from django.test import TestCase
 
 from apps.accounts.models import UserRole
@@ -47,4 +50,18 @@ class CreateNotificationsTests(TestCase):
 
     def test_no_recipients_creates_nothing(self) -> None:
         self.assertEqual(self.create([self.actor]), [])
+        self.assertFalse(NotificationOutbox.objects.exists())
+
+    def test_rollback_discards_outbox_rows_and_never_publishes(self) -> None:
+        worker = create_user(UserRole.WORKER)
+        with patch("apps.notifications.services.publish_notification") as publish:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                with self.assertRaisesMessage(RuntimeError, "business write failed"):
+                    with transaction.atomic():
+                        self.create([worker])
+                        self.assertEqual(NotificationOutbox.objects.count(), 1)
+                        raise RuntimeError("business write failed")
+
+            self.assertEqual(callbacks, [])
+            publish.assert_not_called()
         self.assertFalse(NotificationOutbox.objects.exists())

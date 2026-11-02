@@ -49,6 +49,7 @@ function useRefreshTicketDataWhenSettled() {
 export function useAssignWorker(ticketId: number) {
   const refreshTicketData = useRefreshTicketDataWhenSettled();
   return useMutation({
+    mutationKey: ticketKeys.actions(ticketId),
     mutationFn: (workerId: number) => assignWorker(ticketId, workerId),
     onSettled: refreshTicketData,
   });
@@ -62,6 +63,7 @@ type ChangeDepartmentVariables = {
 export function useChangeDepartment(ticketId: number) {
   const refreshTicketData = useRefreshTicketDataWhenSettled();
   return useMutation({
+    mutationKey: ticketKeys.actions(ticketId),
     mutationFn: ({ departmentId, forwardingNote }: ChangeDepartmentVariables) =>
       changeDepartment(ticketId, departmentId, forwardingNote),
     onSettled: refreshTicketData,
@@ -71,6 +73,7 @@ export function useChangeDepartment(ticketId: number) {
 export function useSubmitAssessment(ticketId: number) {
   const refreshTicketData = useRefreshTicketDataWhenSettled();
   return useMutation({
+    mutationKey: ticketKeys.actions(ticketId),
     mutationFn: (outcome: AssessmentOutcome) => submitAssessment(ticketId, outcome),
     onSettled: refreshTicketData,
   });
@@ -79,6 +82,7 @@ export function useSubmitAssessment(ticketId: number) {
 export function useMarkResolved(ticketId: number) {
   const refreshTicketData = useRefreshTicketDataWhenSettled();
   return useMutation({
+    mutationKey: ticketKeys.actions(ticketId),
     mutationFn: () => markResolved(ticketId),
     onSettled: refreshTicketData,
   });

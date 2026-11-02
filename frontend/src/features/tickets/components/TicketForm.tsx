@@ -1,8 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { parseApiError } from "../../../shared/api/apiError";
@@ -47,6 +49,7 @@ const MULTIPLE_FLOORS_THRESHOLD = 1;
 export function TicketForm({ role, onCreated, onCancel }: TicketFormProps) {
   const isDescriptionRequired = role !== "CLIENT";
   const [formError, setFormError] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
 
   const { control, handleSubmit, setValue, getValues, resetField, setError } = useForm<TicketFormValues>({
     // The Floor rule depends on the Office chosen in this same form, so the schema is built at
@@ -105,6 +108,11 @@ export function TicketForm({ role, onCreated, onCancel }: TicketFormProps) {
   }
 
   function createTicket(values: TicketFormValues) {
+    // Form validation is asynchronous: two rapid submits can finish before the disabled button renders.
+    if (submissionInFlight.current) {
+      return;
+    }
+    submissionInFlight.current = true;
     setFormError(null);
     createTicketMutation.mutate(
       { clientId: values.clientId, payload: buildCreateTicketPayload(values, needsFloorSelection) },
@@ -119,6 +127,9 @@ export function TicketForm({ role, onCreated, onCancel }: TicketFormProps) {
               description: "description",
             }),
           ),
+        onSettled: () => {
+          submissionInFlight.current = false;
+        },
       },
     );
   }
@@ -149,12 +160,33 @@ export function TicketForm({ role, onCreated, onCancel }: TicketFormProps) {
       {formError && <Alert severity="error">{formError}</Alert>}
 
       {clientsQuery.data.length > 1 ? (
-        <FormSelectField
+        <Controller
           control={control}
           name="clientId"
-          label="Client"
-          options={clientsQuery.data}
-          onValueChange={handleClientChange}
+          render={({ field, fieldState }) => (
+            <Autocomplete
+              options={clientsQuery.data}
+              value={selectedClient ?? null}
+              onChange={(_event, client) => {
+                field.onChange(client?.id);
+                handleClientChange();
+              }}
+              onBlur={field.onBlur}
+              getOptionLabel={(client) => client.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderInput={(inputProps) => (
+                <TextField
+                  {...inputProps}
+                  inputRef={field.ref}
+                  label="Client"
+                  placeholder="Type or search client"
+                  required
+                  error={fieldState.invalid}
+                  helperText={fieldState.error?.message}
+                />
+              )}
+            />
+          )}
         />
       ) : (
         <Typography>Client: {clientsQuery.data[0]?.name}</Typography>
@@ -186,6 +218,14 @@ export function TicketForm({ role, onCreated, onCancel }: TicketFormProps) {
 
       {selectedOffice && (
         <>
+          {quickIssuesQuery.isPending && <LoadingIndicator label="Loading quick issues" />}
+          {quickIssuesQuery.isError && (
+            <ErrorMessage
+              error={quickIssuesQuery.error}
+              title="Could not load quick issues."
+              onRetry={() => void quickIssuesQuery.refetch()}
+            />
+          )}
           <QuickIssueChips
             quickIssues={quickIssuesQuery.data ?? []}
             selectedIssues={selectedIssues}
@@ -240,7 +280,9 @@ export function TicketForm({ role, onCreated, onCancel }: TicketFormProps) {
       )}
 
       <div className="flex justify-end gap-2">
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onCancel} disabled={createTicketMutation.isPending}>
+          Cancel
+        </Button>
         <Button
           type="submit"
           variant="contained"
